@@ -75,6 +75,7 @@ void CustomMapping::publishImage(){
     int largest_object_3 = 0; 
     int largest_object_4 = 0; 
     int holding_value = 0; 
+    int outputArray[map_width_ * map_height_]; 
 
     cv::Vec3b white3C(255,255,255),
     	black3C(0,0,0),
@@ -163,6 +164,34 @@ void CustomMapping::publishImage(){
     image_pub_.publish(msg);
 
     sensor_msgs::ImagePtr msg2 = cv_bridge::CvImage(std_msgs::Header(), "bgr8", outputImage).toImageMsg();
+
+
+
+    
+    
+    for (int i = 0; i< outputImage.cols; i++)
+    {
+        for (int j = 0; j < outputImage.rows; j++)
+        {
+			switch (outputImage.at<cv::Vec3b>(j, i,))
+			{
+			case green:
+		 		outputArray[ (i * map_height_ ) + j] = 100; 	//wall is value of 100
+		 		break; 
+   			case red: 
+				outputArray[ (i * map_height_ ) + j] = 50; 	//object is value of 50
+		 		break; 
+   			case white3C:
+				outputArray[ (i * map_height_ ) + j] = 0; 	//clear space is 0
+		 		break; 
+   			default: 
+				outputArray[ (i * map_height_ ) + j] = -1; 	//unknown space or any other space is -1
+		 		break; 
+   			}
+        }
+	}
+
+
     image2_pub_.publish(msg2);
 
     imageCellCheck.clear(); 
