@@ -170,13 +170,16 @@ void CustomMapping::publishImage(){
 			if(outputImage.at<cv::Vec3b>(j, i) == green)
 			{
 	 			outputArray[ (i * map_height_ ) + j] = 100; 	//wall is value of 100
-			}else if(outputImage.at<cv::Vec3b>(j, i) == red)
+			}
+			else if(outputImage.at<cv::Vec3b>(j, i) == red)
 			{
 	 			outputArray[ (i * map_height_ ) + j] = 50; 	//object is value of 50
-			}else if(outputImage.at<cv::Vec3b>(j, i) == white3C)
+			}
+			else if(outputImage.at<cv::Vec3b>(j, i) == white3C)
 			{
 	 			outputArray[ (i * map_height_ ) + j] = 0; 	//clear space is 0 
-			}else
+			}
+			else
 			{
 				outputArray[ (i * map_height_ ) + j] = -1; //anything else is -1
 			}
@@ -190,6 +193,9 @@ void CustomMapping::publishImage(){
 	msg3.info.height = map_height_; 
 	msg3.info.width = map_width_; 
 	msg3.data = outputVector; 
+
+	ROS_INFO("Message Data: height %d, width %d, resolution %f", msg3.info.height, msg3.info.width, msg3.info.resolution);
+	 
 
 	OccupancyGrid_pub_.publish(msg3);
 
