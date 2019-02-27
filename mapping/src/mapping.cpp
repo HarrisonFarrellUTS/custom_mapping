@@ -12,6 +12,8 @@ CustomMapping::CustomMapping(ros::NodeHandle nh)
     image_pub_ = it_.advertise("/image_test", 10);
 
     image2_pub_ = it_.advertise("/processed_image", 10);
+
+    OccupancyGrid_pub_ = nh_.advertise<nav_msgs::OccupancyGrid>("/outputImage", 10);
 }
 
 CustomMapping::~CustomMapping()
@@ -160,38 +162,41 @@ void CustomMapping::publishImage(){
 		outputImage.at<cv::Vec3b>( objects[largest_object][i].y, objects[largest_object][i].x) = green;
 	}
 
-    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", erosion_dst).toImageMsg();
-    image_pub_.publish(msg);
-
-    sensor_msgs::ImagePtr msg2 = cv_bridge::CvImage(std_msgs::Header(), "bgr8", outputImage).toImageMsg();
-
-
-
-    
     
     for (int i = 0; i< outputImage.cols; i++)
     {
         for (int j = 0; j < outputImage.rows; j++)
         {
-			switch (outputImage.at<cv::Vec3b>(j, i,))
+			if(outputImage.at<cv::Vec3b>(j, i) == green)
 			{
-			case green:
-		 		outputArray[ (i * map_height_ ) + j] = 100; 	//wall is value of 100
-		 		break; 
-   			case red: 
-				outputArray[ (i * map_height_ ) + j] = 50; 	//object is value of 50
-		 		break; 
-   			case white3C:
-				outputArray[ (i * map_height_ ) + j] = 0; 	//clear space is 0
-		 		break; 
-   			default: 
-				outputArray[ (i * map_height_ ) + j] = -1; 	//unknown space or any other space is -1
-		 		break; 
-   			}
+	 			outputArray[ (i * map_height_ ) + j] = 100; 	//wall is value of 100
+			}else if(outputImage.at<cv::Vec3b>(j, i) == red)
+			{
+	 			outputArray[ (i * map_height_ ) + j] = 50; 	//object is value of 50
+			}else if(outputImage.at<cv::Vec3b>(j, i) == white3C)
+			{
+	 			outputArray[ (i * map_height_ ) + j] = 0; 	//clear space is 0 
+			}else
+			{
+				outputArray[ (i * map_height_ ) + j] = -1; //anything else is -1
+			}
         }
 	}
 
+	std::vector<signed char> outputVector(outputArray, outputArray + (map_height_ * map_width_));
 
+	nav_msgs::OccupancyGrid msg3;
+	msg3.info.resolution = map_resolution_; 
+	msg3.info.height = map_height_; 
+	msg3.info.width = map_width_; 
+	msg3.data = outputVector; 
+
+	OccupancyGrid_pub_.publish(msg3);
+
+    sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", erosion_dst).toImageMsg();
+    image_pub_.publish(msg);
+
+    sensor_msgs::ImagePtr msg2 = cv_bridge::CvImage(std_msgs::Header(), "bgr8", outputImage).toImageMsg();
     image2_pub_.publish(msg2);
 
     imageCellCheck.clear(); 
@@ -250,3 +255,34 @@ void CustomMapping::neighboursCheck(int j, int k, cv::Mat erosion_dst)
     }
     objects.push_back(object); 
 }
+
+
+
+
+
+/*
+
+
+void mapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+  std_msgs::Header header = msg->header;
+  nav_msgs::MapMetaData info = msg->info;
+  ROS_INFO("Got map %d %d", info.width, info.height);
+  Map map(info.width, info.height);
+  for (unsigned int x = 0; x < info.width; x++)
+    for (unsigned int y = 0; y < info.height; y++)
+      map.Insert(Cell(x,y,info.width,msg->data[x+ info.width * y]));
+  nav_msgs::OccupancyGrid* newGrid = map.Grid();
+  newGrid->header = header;
+  newGrid->info = info;
+  map_pub.publish(*newGrid);
+}
+
+int main(int argc, char **argv){
+  ros::init(argc, argv, "grid");
+  ros::NodeHandle n;
+
+  map_pub = n.advertise<nav_msgs::OccupancyGrid>("map_out",10);
+  ros::Subscriber map_sub = n.subscribe("map",10,mapCallback);
+  
+
+  */

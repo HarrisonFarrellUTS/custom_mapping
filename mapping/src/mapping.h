@@ -15,6 +15,7 @@
 
 #include "ros/ros.h"
 #include "std_msgs/String.h"
+#include "std_msgs/Header.h"
 #include "tf/transform_datatypes.h"
 #include <ros/package.h>
 
@@ -67,6 +68,7 @@ private:
     image_transport::ImageTransport it_;	//!a nodeHandle for images
     image_transport::Publisher image_pub_;	//!used the same as a ros::publisher
     image_transport::Publisher image2_pub_; //!used the same as a ros::publisher
+    ros::Publisher OccupancyGrid_pub_; 	//!used for the publishing of the occpancy grid 
     ros::Subscriber sub1_;
     ros::Subscriber sub2_;
 
