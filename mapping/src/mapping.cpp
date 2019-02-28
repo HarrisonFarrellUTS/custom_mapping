@@ -140,27 +140,27 @@ void CustomMapping::publishImage(){
         }
     }
 
-    for(int j = 0; j < objects.size(); j++)
+/////////////////////////////////////////////// NEW CODE vvvvvvvvvvvvvvvvv
+    std::vector<CustomMapping::Objects> diag_objects;
+    for(auto object:objects)
     {
-    	for(int k = 0; k < objects[j].size(); k++)
-    	{
-			outputImage.at<cv::Vec3b>( objects[j][k].y, objects[j][k].x ) = red;
-    	}
+        CustomMapping::Objects new_object;
+        new_object.objects = object;
+        new_object.compute_diagonal();
+        diag_objects.push_back(new_object);
     }
+    std::sort(diag_objects.begin(), diag_objects.end(), [](const CustomMapping::Objects & a, const CustomMapping::Objects & b){ return a.diagonal > b.diagonal; });
 
-	for(int i = 0;  i < objects.size(); i++)
+	for(int a = 0; a < diag_objects.size(); a++)
 	{
-		if(objects[i].size() > holding_value)
+		if(diag_objects[a].diagonal > 0.4 * diag_objects[0].diagonal) diag_objects[a].obstacle = false;
+		for(auto object:diag_objects[a].objects)
 		{
-			holding_value = objects[i].size();
-			largest_object = i;  
-		} 
+			if(diag_objects[a].obstacle) outputImage.at<cv::Vec3b>( object.y, object.x ) = red;
+			else outputImage.at<cv::Vec3b>( object.y, object.x ) = green;
+		}
 	}
-
-	for (int i = 0; i < objects[largest_object].size(); i++)
-	{
-		outputImage.at<cv::Vec3b>( objects[largest_object][i].y, objects[largest_object][i].x) = green;
-	}
+/////////////////////////////////////////////// NEW CODE ^^^^^^^^^^^^^^
 
     
     for (int i = 0; i< outputImage.cols; i++)
@@ -262,8 +262,27 @@ void CustomMapping::neighboursCheck(int j, int k, cv::Mat erosion_dst)
     objects.push_back(object); 
 }
 
+/////////////////////////////////////////////// NEW CODE vvvvvvvvvvvvvvvvv
 
+void CustomMapping::Objects::compute_diagonal()
+{
+    int min_x = 100000;
+    int min_y = 100000;
+    int max_x = 0;
+    int max_y = 0;
 
+    for(auto object:objects)
+    {
+        if(object.x < min_x) min_x = object.x;
+        if(object.y < min_y) min_y = object.y;
+        if(object.x > max_x) max_x = object.x;
+        if(object.y > max_y) max_y = object.y;
+    }
+
+    diagonal = sqrt(pow(static_cast<double>(max_x) -  static_cast<double>(min_x),2) + pow(static_cast<double>(max_y) -  static_cast<double>(min_y) ,2));
+}
+
+/////////////////////////////////////////////// NEW CODE ^^^^^^^^^^^^^^^
 
 
 /*

@@ -50,7 +50,17 @@ public:
         int x; 
         int y; 
     };
+/////////////////////////////////////////////// NEW CODE vvvvvvvvvvvvvvvvv
 
+    struct Objects
+    {
+        std::vector<searchCell> objects;
+        double diagonal;
+        bool obstacle;
+
+        void compute_diagonal();
+    };
+/////////////////////////////////////////////// NEW CODE ^^^^^^^^^^^^^^^^^^
     ros::NodeHandle nh_;
     CustomMapping(ros::NodeHandle nh);
     ~CustomMapping();
@@ -62,6 +72,7 @@ public:
     void publishImage();
 
     void neighboursCheck(int j, int k, cv::Mat erosion_dst);
+
      
 private:
     
