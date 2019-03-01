@@ -2,6 +2,7 @@
 
 #define requiredHz 1
 #define WHITE 255
+#define GREY 150
 
 CustomMapping::CustomMapping(ros::NodeHandle nh)
     : nh_(nh) , it_(nh)
@@ -13,7 +14,7 @@ CustomMapping::CustomMapping(ros::NodeHandle nh)
 
     image2_pub_ = it_.advertise("/processed_image", 10);
 
-    OccupancyGrid_pub_ = nh_.advertise<nav_msgs::OccupancyGrid>("/outputImage", 10);
+    OccupancyGrid_pub_ = nh_.advertise<nav_msgs::OccupancyGrid>("/output_map", 10);
 }
 
 CustomMapping::~CustomMapping()
@@ -42,10 +43,11 @@ void CustomMapping::occupancyGridCallback(const nav_msgs::OccupancyGridConstPtr&
     std::unique_lock<std::mutex> lck(mtx);
     point_values_.clear();
     int i = 0; 
-
+    map_info_ = msg->info;
     map_resolution_ = msg->info.resolution;
     map_height_ = msg->info.height;
     map_width_ = msg->info.width;
+    ROS_INFO("INPUT_OG Data: height %d, width %d, resolution %f, size %d", msg->info.height, msg->info.width, msg->info.resolution, msg->data.size());
 
     for(int j = 0; j < map_height_; j++ )
     {
@@ -77,12 +79,13 @@ void CustomMapping::publishImage(){
     int largest_object_3 = 0; 
     int largest_object_4 = 0; 
     int holding_value = 0; 
-    int outputArray[map_width_ * map_height_]; 
+    //int outputArray[map_width_ * map_height_];
 
     cv::Vec3b white3C(255,255,255),
+        grey3C(150, 150, 150),
     	black3C(0,0,0),
-        red(0, 0, 255),
-        green (0, 255, 0);
+        red(30, 100, 200),
+        green (200, 100, 40);
 
     uint8_t white = 255;
     uint8_t black = 0;
@@ -96,19 +99,19 @@ void CustomMapping::publishImage(){
             {
             case 0:
                 inputImage.at<uint8_t>(k , j) = WHITE; //known clear space
-                outputImage.at<cv::Vec3b>(k,j) = white3C; 
+                outputImage.at<cv::Vec3b>(k , j) = white3C; 
                 break;
             case 100:
                 inputImage.at<uint8_t>(k , j) = black; //object
-                outputImage.at<cv::Vec3b>(k,j) = black3C;
+                outputImage.at<cv::Vec3b>(k , j) = black3C;
                 break;
             case -1:
                 inputImage.at<uint8_t>(k , j) = WHITE; //unknown, unclear space
-                outputImage.at<cv::Vec3b>(k,j) = white3C;
+                outputImage.at<cv::Vec3b>(k , j) = grey3C;
                 break;
             default:
                 inputImage.at<uint8_t>(k , j) = WHITE;
-                outputImage.at<cv::Vec3b>(k,j) = white3C;
+                outputImage.at<cv::Vec3b>(k , j) = white3C;
                 break;
             }
         }
@@ -154,6 +157,7 @@ void CustomMapping::publishImage(){
 	for(int a = 0; a < diag_objects.size(); a++)
 	{
 		if(diag_objects[a].diagonal > 0.4 * diag_objects[0].diagonal) diag_objects[a].obstacle = false;
+        else diag_objects[a].obstacle = true;
 		for(auto object:diag_objects[a].objects)
 		{
 			if(diag_objects[a].obstacle) outputImage.at<cv::Vec3b>( object.y, object.x ) = red;
@@ -162,39 +166,45 @@ void CustomMapping::publishImage(){
 	}
 /////////////////////////////////////////////// NEW CODE ^^^^^^^^^^^^^^
 
-    
+    std::vector<signed char> outputVector;
     for (int i = 0; i< outputImage.cols; i++)
     {
         for (int j = 0; j < outputImage.rows; j++)
         {
 			if(outputImage.at<cv::Vec3b>(j, i) == green)
 			{
-	 			outputArray[ (i * map_height_ ) + j] = 100; 	//wall is value of 100
+                //outputArray[ (i * map_height_ ) + j] = 100; 	//wall is value of 100
+                outputVector.push_back(100);
 			}
 			else if(outputImage.at<cv::Vec3b>(j, i) == red)
 			{
-	 			outputArray[ (i * map_height_ ) + j] = 50; 	//object is value of 50
+                //outputArray[ (i * map_height_ ) + j] = 50; 	//object is value of 50
+                outputVector.push_back(50);
 			}
 			else if(outputImage.at<cv::Vec3b>(j, i) == white3C)
 			{
-	 			outputArray[ (i * map_height_ ) + j] = 0; 	//clear space is 0 
+                //outputArray[ (i * map_height_ ) + j] = 0; 	//clear space is 0
+                outputVector.push_back(0);
 			}
+            else if(outputImage.at<cv::Vec3b>(j, i) == grey3C)
+            {
+                //outputArray[ (i * map_height_ ) + j] = -1; 	//clear space is 0
+                outputVector.push_back(-1);
+            }
 			else
 			{
-				outputArray[ (i * map_height_ ) + j] = -1; //anything else is -1
+                //outputArray[ (i * map_height_ ) + j] = -1; //anything else is -1
 			}
         }
 	}
 
-	std::vector<signed char> outputVector(outputArray, outputArray + (map_height_ * map_width_));
+    //std::vector<signed char> outputVector(outputArray, outputArray + (map_height_ * map_width_));
 
 	nav_msgs::OccupancyGrid msg3;
-	msg3.info.resolution = map_resolution_; 
-	msg3.info.height = map_height_; 
-	msg3.info.width = map_width_; 
+    msg3.info = map_info_;
 	msg3.data = outputVector; 
 
-	ROS_INFO("Message Data: height %d, width %d, resolution %f", msg3.info.height, msg3.info.width, msg3.info.resolution);
+    ROS_INFO("OUTPUT_OG Data: height %d, width %d, resolution %f, size %d", msg3.info.height, msg3.info.width, msg3.info.resolution, msg3.data.size());
 	 
 
 	OccupancyGrid_pub_.publish(msg3);

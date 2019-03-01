@@ -89,6 +89,8 @@ private:
     float map_resolution_ = 0;//! size of OgMap in m/cells
     int map_height_ = 0; //height of the map in number of cells
     int map_width_ = 0;  //width of the map in number of cells
+    nav_msgs::MapMetaData map_info_;
+
 
     std::vector<pixelPoint> point_values_;
     std::vector<searchCell> object;

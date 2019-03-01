@@ -1,8 +1,0 @@
-prefix=/home/harry/Documents/Summer Studio/custom_mapping/build/devel
-
-Name: mapping
-Description: Description of mapping
-Version: 0.0.0
-Cflags: 
-Libs: -L/home/harry/Documents/Summer Studio/custom_mapping/build/devel/lib 
-Requires: 
