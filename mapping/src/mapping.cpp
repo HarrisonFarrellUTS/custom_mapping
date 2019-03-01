@@ -4,9 +4,8 @@
 #define WHITE 255
 #define GREY 150
 
-CustomMapping::CustomMapping(ros::NodeHandle nh)
+CustomMapping::CustomMapping(ros::NodeHandle nh)    //The constructor of the customMapping class
     : nh_(nh) , it_(nh)
-
 {
     sub2_ = nh.subscribe<nav_msgs::OccupancyGrid>("/map", 10, &CustomMapping::occupancyGridCallback,this);
 
@@ -17,12 +16,12 @@ CustomMapping::CustomMapping(ros::NodeHandle nh)
     OccupancyGrid_pub_ = nh_.advertise<nav_msgs::OccupancyGrid>("/output_map", 10);
 }
 
-CustomMapping::~CustomMapping()
+CustomMapping::~CustomMapping()     //the Deconstructor of the customMapping class
 {}
 
-void CustomMapping::actionThread(){
-
-    while(!initalRun){};
+void CustomMapping::actionThread()  //The main loop
+{
+    while(!initalRun){};            //the initial occupancy grid bool check 
 
     ros::Rate loop_Rate(requiredHz);
     bool loopSet = 0;
@@ -38,8 +37,8 @@ void CustomMapping::actionThread(){
     }
 }
 
-void CustomMapping::occupancyGridCallback(const nav_msgs::OccupancyGridConstPtr& msg){
-
+void CustomMapping::occupancyGridCallback(const nav_msgs::OccupancyGridConstPtr& msg)   //The occupancy grid call back from the gmapping
+{
     std::unique_lock<std::mutex> lck(mtx);
     point_values_.clear();
     int i = 0; 
@@ -49,7 +48,7 @@ void CustomMapping::occupancyGridCallback(const nav_msgs::OccupancyGridConstPtr&
     map_width_ = msg->info.width;
     ROS_INFO("INPUT_OG Data: height %d, width %d, resolution %f, size %d", msg->info.height, msg->info.width, msg->info.resolution, msg->data.size());
 
-    for(int j = 0; j < map_height_; j++ )
+    for(int j = 0; j < map_height_; j++ )       //converts the 1D array of the occupancy grid into a vector of cells, [x].[y] [point_values]
     {
         for(int k =0; k < map_width_; k++ )
         {
@@ -66,20 +65,21 @@ void CustomMapping::occupancyGridCallback(const nav_msgs::OccupancyGridConstPtr&
     cv.notify_one();
 }
 
-void CustomMapping::publishImage(){
- 
+void CustomMapping::publishImage()
+{
+    //initialisation all the images used
     cv::Mat inputImage(map_height_, map_width_, CV_8U);
     cv::Mat outputImage(map_height_, map_width_, CV_8UC3);
     cv::Mat erosion_dst(map_height_, map_width_, CV_8U);
     cv::Mat dilation_dst(map_height_, map_width_, CV_8U);
     cv::Mat greyMat(map_height_, map_width_, CV_8U);
 
+    //initialisation of variables
     int largest_object = 0; 
     int largest_object_2 = 0; 
     int largest_object_3 = 0; 
     int largest_object_4 = 0; 
     int holding_value = 0; 
-    //int outputArray[map_width_ * map_height_];
 
     cv::Vec3b white3C(255,255,255),
         grey3C(150, 150, 150),
@@ -90,11 +90,12 @@ void CustomMapping::publishImage(){
     uint8_t white = 255;
     uint8_t black = 0;
 
+    //A simple loop for converting the vector of points into a cv::Mat image
     for(int j = 0; j < map_height_; j++ )
     {
         for(int k =0; k < map_width_; k++ )
         {
-            imageCellCheck.push_back(false);
+            imageCellCheck.push_back(false);    //sets the size of the imageCellCheck to the size of the image
             switch (point_values_[ (j * map_height_ ) +k ].point_value)
             {
             case 0:
@@ -117,25 +118,24 @@ void CustomMapping::publishImage(){
         }
     }
 
+    //using openCV to erode the input image to reduce the noise the 2D lidar creates 
 	cv::Mat element = cv::getStructuringElement( cv::MORPH_RECT,
 	                       cv::Size(1,1),
 	                       cv::Point(-1,-1));
-	
-    // cv::erode( inputImage, dilation_dst, element);
-    // cv::dilate( dilation_dst, erosion_dst, element);
-
 	cv::erode(inputImage, erosion_dst, element);    
 
+
+    //A loop to search the input image for all known Cells
     for(int j = 0; j < map_height_; j++)
     {
         for(int k = 0; k < map_width_; k++)
         {
             if(imageCellCheck.at( (j * map_height_ ) + k) == false)
             {
-                imageCellCheck.at((j * map_height_ ) + k) = true;
+                imageCellCheck.at((j * map_height_ ) + k) = true;   //sets the imageCellCheck to true once searched 
                 if(erosion_dst.at<uint8_t>(k, j) != WHITE)
                 {
-                	object.clear();
+                	object.clear();    
                 	temp.clear(); 
                     neighboursCheck(j,k, erosion_dst);
                 }
@@ -143,7 +143,7 @@ void CustomMapping::publishImage(){
         }
     }
 
-/////////////////////////////////////////////// NEW CODE vvvvvvvvvvvvvvvvv
+    //A set loops to find the diagonal of all the objects and determine the largest 
     std::vector<CustomMapping::Objects> diag_objects;
     for(auto object:objects)
     {
@@ -164,8 +164,8 @@ void CustomMapping::publishImage(){
 			else outputImage.at<cv::Vec3b>( object.y, object.x ) = green;
 		}
 	}
-/////////////////////////////////////////////// NEW CODE ^^^^^^^^^^^^^^
 
+    //turns the outimage into a 1D occupancy grid to be published 
     std::vector<signed char> outputVector;
     for (int i = 0; i< outputImage.cols; i++)
     {
@@ -198,14 +198,10 @@ void CustomMapping::publishImage(){
         }
 	}
 
-    //std::vector<signed char> outputVector(outputArray, outputArray + (map_height_ * map_width_));
-
+    //Publishing all the images created along an 1D occupancy grid 
 	nav_msgs::OccupancyGrid msg3;
     msg3.info = map_info_;
-	msg3.data = outputVector; 
-
-    ROS_INFO("OUTPUT_OG Data: height %d, width %d, resolution %f, size %d", msg3.info.height, msg3.info.width, msg3.info.resolution, msg3.data.size());
-	 
+	msg3.data = outputVector; 	 
 
 	OccupancyGrid_pub_.publish(msg3);
 
@@ -215,6 +211,7 @@ void CustomMapping::publishImage(){
     sensor_msgs::ImagePtr msg2 = cv_bridge::CvImage(std_msgs::Header(), "bgr8", outputImage).toImageMsg();
     image2_pub_.publish(msg2);
 
+    //Clears all the vectors at the end of the loop 
     imageCellCheck.clear(); 
     objects.clear();
     object.clear();;
@@ -229,6 +226,8 @@ void CustomMapping::neighboursCheck(int j, int k, cv::Mat erosion_dst)
     object.push_back(cell_initial);
     temp.push_back(cell_initial);
 
+    //the Searching of a cell known to be a known cell and it's 8 surrounding neighbours
+    //if a neighbour is also known, it's added to a vector and has it's neighbours also checked. 
     while(!temp.empty())
     {
         int j_search_ = temp.back().x;
@@ -272,8 +271,7 @@ void CustomMapping::neighboursCheck(int j, int k, cv::Mat erosion_dst)
     objects.push_back(object); 
 }
 
-/////////////////////////////////////////////// NEW CODE vvvvvvvvvvvvvvvvv
-
+//function for computing the diagonals for the objects
 void CustomMapping::Objects::compute_diagonal()
 {
     int min_x = 100000;
@@ -291,33 +289,3 @@ void CustomMapping::Objects::compute_diagonal()
 
     diagonal = sqrt(pow(static_cast<double>(max_x) -  static_cast<double>(min_x),2) + pow(static_cast<double>(max_y) -  static_cast<double>(min_y) ,2));
 }
-
-/////////////////////////////////////////////// NEW CODE ^^^^^^^^^^^^^^^
-
-
-/*
-
-
-void mapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-  std_msgs::Header header = msg->header;
-  nav_msgs::MapMetaData info = msg->info;
-  ROS_INFO("Got map %d %d", info.width, info.height);
-  Map map(info.width, info.height);
-  for (unsigned int x = 0; x < info.width; x++)
-    for (unsigned int y = 0; y < info.height; y++)
-      map.Insert(Cell(x,y,info.width,msg->data[x+ info.width * y]));
-  nav_msgs::OccupancyGrid* newGrid = map.Grid();
-  newGrid->header = header;
-  newGrid->info = info;
-  map_pub.publish(*newGrid);
-}
-
-int main(int argc, char **argv){
-  ros::init(argc, argv, "grid");
-  ros::NodeHandle n;
-
-  map_pub = n.advertise<nav_msgs::OccupancyGrid>("map_out",10);
-  ros::Subscriber map_sub = n.subscribe("map",10,mapCallback);
-  
-
-  */

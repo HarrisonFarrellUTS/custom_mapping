@@ -36,42 +36,42 @@ class CustomMapping{
 
 public:
 
-    bool initalRun = false;
 
-    struct pixelPoint
+    bool initalRun = false;     //!A bool to make sure the occupancy grid grid is the first to run before the main loop  
+
+    struct pixelPoint           //!A struct used for transfering data from the input occupancy grid into the open CV mat image
     {
         int x;
         int y;
         int point_value;
     };
 
-    struct searchCell
+    struct searchCell           //!A struct used for looking at pixelCell values and it's neighbours 
     {
         int x; 
         int y; 
     };
-/////////////////////////////////////////////// NEW CODE vvvvvvvvvvvvvvvvv
 
-    struct Objects
+    struct Objects              //!A struct used to idenify obstacles
     {
         std::vector<searchCell> objects;
         double diagonal;
         bool obstacle;
 
-        void compute_diagonal();
+        void compute_diagonal();    //!A function that is any to compute the digonal
     };
-/////////////////////////////////////////////// NEW CODE ^^^^^^^^^^^^^^^^^^
+
     ros::NodeHandle nh_;
     CustomMapping(ros::NodeHandle nh);
     ~CustomMapping();
 
-    void occupancyGridCallback(const nav_msgs::OccupancyGridConstPtr& msg);
+    void occupancyGridCallback(const nav_msgs::OccupancyGridConstPtr& msg); //!The callback for the occupancyGrid created by the gmapping
 
-    void actionThread(); 
+    void actionThread();        //! The main thread loop, everything takes place in here
 
-    void publishImage();
+    void publishImage();        //! The function that produces the output images 
 
-    void neighboursCheck(int j, int k, cv::Mat erosion_dst);
+    void neighboursCheck(int j, int k, cv::Mat erosion_dst);    //! The function that checks the neighbours of the search cell
 
      
 private:
